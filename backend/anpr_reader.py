@@ -7,7 +7,10 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-import cv2
+try:
+    import easyocr
+except Exception:  # pragma: no cover - allow cloud runtime without heavy OCR deps
+    easyocr = None
 import easyocr
 
 try:
@@ -19,19 +22,24 @@ except Exception:  # pragma: no cover - allows runtime without Gemini client
 class ANPRReader:
     def __init__(self) -> None:
         try:
-            self.reader = easyocr.Reader(["en"], gpu=True)
-            self._log("EasyOCR initialized with GPU acceleration")
-        except Exception as gpu_err:
-            self._log(
-                f"EasyOCR GPU init failed ({gpu_err}). "
-                "Falling back to CPU — OCR will be slower but functional."
-            )
+        if easyocr is None:
+            self.reader = None
+            self._log("EasyOCR package unavailable. ANPR disabled in this runtime.")
+        else:
             try:
-                self.reader = easyocr.Reader(["en"], gpu=False)
-                self._log("EasyOCR initialized on CPU (fallback)")
-            except Exception as cpu_err:
-                self._log(f"EasyOCR CPU init also failed: {cpu_err}. ANPR disabled.")
-                self.reader = None
+                self.reader = easyocr.Reader(["en"], gpu=True)
+                self._log("EasyOCR initialized with GPU acceleration")
+            except Exception as gpu_err:
+                self._log(
+                    f"EasyOCR GPU init failed ({gpu_err}). "
+                    "Falling back to CPU — OCR will be slower but functional."
+                )
+                try:
+                    self.reader = easyocr.Reader(["en"], gpu=False)
+                    self._log("EasyOCR initialized on CPU (fallback)")
+                except Exception as cpu_err:
+                    self._log(f"EasyOCR CPU init also failed: {cpu_err}. ANPR disabled.")
+                    self.reader = None
 
         self.gemini_client = None
         gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
