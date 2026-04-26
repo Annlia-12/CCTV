@@ -45,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { io } from "socket.io-client";
 import { useToast } from "@/components/ui/use-toast";
+import { apiUrl } from "@/lib/api";
 
 interface Incident {
   id: string;
@@ -118,7 +119,7 @@ export default function IncidentHistory() {
         params.append("severity_max", max);
       }
 
-      const res = await fetch(`http://127.0.0.1:5000/api/incidents?${params.toString()}`);
+      const res = await fetch(apiUrl(`/api/incidents?${params.toString()}`));
       const envelope = await res.json();
       // Backend wraps responses in {success, data: {...}}
       const data: IncidentResponse = envelope?.data ?? envelope;
@@ -142,7 +143,7 @@ export default function IncidentHistory() {
 
   // Socket Live Updates
   useEffect(() => {
-    const socket = io("http://127.0.0.1:5000", {
+    const socket = io(apiUrl(""), {
       transports: ["polling"],
       upgrade: false,
       reconnection: true,
@@ -180,7 +181,7 @@ export default function IncidentHistory() {
       params.append("severity_max", max);
     }
 
-    window.open(`http://127.0.0.1:5000/api/incidents/export?${params.toString()}`, "_blank");
+    window.open(apiUrl(`/api/incidents/export?${params.toString()}`), "_blank");
   };
 
   const getRelativeTime = (isoTime: string | null | undefined) => {

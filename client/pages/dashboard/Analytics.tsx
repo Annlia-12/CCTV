@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, TrendingDown, Activity, AlertTriangle, MapPin, ShieldAlert, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiUrl } from "@/lib/api";
 
 const COLORS = ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#1d3557', '#e9c46a', '#8338ec', '#ff006e'];
 const SEVERITY_COLORS = ['#e63946', '#f4a261', '#2a9d8f']; // High, Medium, Low
@@ -50,14 +51,14 @@ export default function Analytics() {
             };
 
             const [summary, byType, overTime, severity, peakHours, byLocation, delivery, authorities] = await Promise.all([
-                unwrap(`http://127.0.0.1:5000/api/analytics/summary${qs}`),
-                unwrap(`http://127.0.0.1:5000/api/analytics/by-type${qs}`),
-                unwrap(`http://127.0.0.1:5000/api/analytics/over-time${qs}`),
-                unwrap(`http://127.0.0.1:5000/api/analytics/severity${qs}`),
-                unwrap(`http://127.0.0.1:5000/api/analytics/peak-hours${qs}`),
-                unwrap(`http://127.0.0.1:5000/api/analytics/by-location${qs}`),
-                unwrap(`http://127.0.0.1:5000/api/analytics/delivery${qs}`),
-                unwrap(`http://127.0.0.1:5000/api/analytics/authorities${qs}`),
+                unwrap(apiUrl(`/api/analytics/summary${qs}`)),
+                unwrap(apiUrl(`/api/analytics/by-type${qs}`)),
+                unwrap(apiUrl(`/api/analytics/over-time${qs}`)),
+                unwrap(apiUrl(`/api/analytics/severity${qs}`)),
+                unwrap(apiUrl(`/api/analytics/peak-hours${qs}`)),
+                unwrap(apiUrl(`/api/analytics/by-location${qs}`)),
+                unwrap(apiUrl(`/api/analytics/delivery${qs}`)),
+                unwrap(apiUrl(`/api/analytics/authorities${qs}`)),
             ]);
 
             setData({

@@ -15,8 +15,9 @@ import AdminSetupModal from "@/components/AdminSetupModal";
 import EmergencyCallOverlay from "@/components/EmergencyCallOverlay";
 import { EmergencyAlertModal } from "../../components/EmergencyAlertModal";
 import { useEmergencySpeech } from "@/hooks/useEmergencySpeech";
+import { apiUrl } from "@/lib/api";
 
-const API = "http://127.0.0.1:5000";
+const API = apiUrl("");
 const VOICE_AUTO_DELAY_MS = 120000;
 
 interface Detection {

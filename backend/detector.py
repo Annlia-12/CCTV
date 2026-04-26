@@ -213,6 +213,11 @@ class Detector:
 
     def load_models(self) -> None:
         """Load all heavy models. Call this from a background thread."""
+        if os.getenv("DISABLE_HEAVY_MODELS", "").strip().lower() in {"1", "true", "yes", "on"}:
+            self.models_loaded = True
+            self._log("heavy model loading disabled via DISABLE_HEAVY_MODELS")
+            return
+
         self._log("loading models in background thread...")
 
         # 1. General YOLOv8

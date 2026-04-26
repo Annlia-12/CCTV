@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Phone, Send, CheckCircle2, MessageSquare, ShieldCheck, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { apiUrl } from '@/lib/api';
 
 interface AdminSetupModalProps {
   isOpen: boolean;
@@ -22,11 +23,9 @@ const AdminSetupModal: React.FC<AdminSetupModalProps> = ({ isOpen, onClose, onSe
     }
   }, [isOpen]);
 
-  const API = "http://127.0.0.1:5000";
-
   const checkTelegramStatus = async () => {
     try {
-      const resp = await fetch(`${API}/api/telegram/status`);
+      const resp = await fetch(apiUrl('/api/telegram/status'));
       const json = await resp.json();
       if (json.success) {
         setTelegramStatus(prev => {
@@ -44,7 +43,7 @@ const AdminSetupModal: React.FC<AdminSetupModalProps> = ({ isOpen, onClose, onSe
   const requestTelegramCode = async () => {
     setIsLoadingTelegram(true);
     try {
-      const resp = await fetch(`${API}/api/telegram/request-code`, { method: 'POST' });
+      const resp = await fetch(apiUrl('/api/telegram/request-code'), { method: 'POST' });
       const json = await resp.json();
       if (json.success) {
         const code = json.data.code;
@@ -63,7 +62,7 @@ const AdminSetupModal: React.FC<AdminSetupModalProps> = ({ isOpen, onClose, onSe
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const resp = await fetch(`${API}/api/alerts/register-session`, {
+      const resp = await fetch(apiUrl('/api/alerts/register-session'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, phone })

@@ -5,8 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Activity, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
-
-const BACKEND_BASE = "http://127.0.0.1:5000";
+import { apiUrl } from "@/lib/api";
 
 interface AnalysisResult {
   video_id: string;
@@ -89,7 +88,7 @@ export default function VideoAnalyzer() {
       const formData = new FormData();
       formData.append("video", selectedFile);
 
-      const response = await fetch(`${BACKEND_BASE}/api/video/analyze`, {
+      const response = await fetch(apiUrl("/api/video/analyze"), {
         method: "POST",
         body: formData,
       });

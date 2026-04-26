@@ -29,6 +29,7 @@ import {
    DialogTitle,
    DialogDescription,
 } from "@/components/ui/dialog";
+import { apiUrl } from "@/lib/api";
 
 interface FeatureStatus {
    feature_id: string;
@@ -106,10 +107,10 @@ export default function Analytics() {
          };
 
          const [statusData, alertsData, suspectsData, statsData] = await Promise.all([
-            unwrap("http://127.0.0.1:5000/api/features/status"),
-            unwrap("http://127.0.0.1:5000/api/features/recent"),
-            unwrap("http://127.0.0.1:5000/api/features/loitering"),
-            unwrap("http://127.0.0.1:5000/api/system/stats"),
+            unwrap(apiUrl("/api/features/status")),
+            unwrap(apiUrl("/api/features/recent")),
+            unwrap(apiUrl("/api/features/loitering")),
+            unwrap(apiUrl("/api/system/stats")),
          ]);
 
          if (Array.isArray(statusData)) {
@@ -131,7 +132,7 @@ export default function Analytics() {
    useEffect(() => {
       fetchInitialData();
       const statsInterval = setInterval(() => {
-         fetch("http://127.0.0.1:5000/api/system/stats")
+         fetch(apiUrl("/api/system/stats"))
             .then(res => res.json())
             .then(data => { if (data.current_fps) setSystemStats(data) })
             .catch(() => { });
@@ -141,7 +142,7 @@ export default function Analytics() {
    }, []);
 
    useEffect(() => {
-      const socket = io("http://127.0.0.1:5000", {
+      const socket = io(apiUrl(""), {
          reconnection: true,
          transports: ["polling"],
          upgrade: false,
@@ -157,7 +158,7 @@ export default function Analytics() {
       });
 
       const suspectInterval = setInterval(() => {
-         fetch("http://127.0.0.1:5000/api/features/loitering")
+         fetch(apiUrl("/api/features/loitering"))
             .then(res => res.json())
             .then(body => {
                const data = body?.data ?? body;
@@ -175,7 +176,7 @@ export default function Analytics() {
    const toggleFeature = async (featureId: string, currentState: boolean) => {
       setToggling(prev => ({ ...prev, [featureId]: true }));
       try {
-         const response = await fetch("http://127.0.0.1:5000/api/features/toggle", {
+         const response = await fetch(apiUrl("/api/features/toggle"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ feature_id: featureId, is_active: !currentState })

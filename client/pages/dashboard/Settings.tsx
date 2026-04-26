@@ -46,6 +46,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { io, Socket } from "socket.io-client";
+import { apiUrl } from "@/lib/api";
 
 type CameraSourceType = "webcam" | "ipcam" | "youtube";
 type AuthorityType = "hospital" | "police" | "fire" | "traffic" | "municipal";
@@ -119,7 +120,7 @@ declare global {
   }
 }
 
-const API_BASE = "http://127.0.0.1:5000";
+const API_BASE = apiUrl("");
 const HYDERABAD: [number, number] = [17.385, 78.4867];
 const COOLDOWN_OPTIONS = [
   { label: "30 seconds", value: 30 },
@@ -544,7 +545,7 @@ export default function Settings() {
   }, []);
 
   useEffect(() => {
-    const socket: Socket = io("http://127.0.0.1:5000", {
+    const socket: Socket = io(API_BASE, {
       transports: ["polling"],
       upgrade: false,
       reconnection: true,

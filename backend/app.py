@@ -1402,15 +1402,21 @@ def _detect_webcam_location() -> dict[str, Any] | None:
 
 def initialize_runtime() -> None:
     _log("initializing Protego runtime...")
+    skip_heavy_models = os.getenv("DISABLE_HEAVY_MODELS", "").strip().lower() in {"1", "true", "yes", "on"}
     
     # Start Telegram polling listener
     threading.Thread(target=_telegram_polling_thread, daemon=True).start()
 
-    # Load heavy models in background so server accepts connections immediately.
-    def _model_loader():
-        _detector.load_models()
+    # Load heavy models only when explicitly enabled.
+    if skip_heavy_models:
+        _detector.models_loaded = True
+        _log("heavy model loading disabled; using cloud-safe fallback mode")
+    else:
+        # Load heavy models in background so server accepts connections immediately.
+        def _model_loader():
+            _detector.load_models()
 
-    socketio.start_background_task(_model_loader)
+        socketio.start_background_task(_model_loader)
 
     ensure_background_tasks()
 
