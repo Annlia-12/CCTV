@@ -667,7 +667,7 @@ function GeminiSidebar({ geminiData, geminiLog }: { geminiData: GeminiAnalysis |
             fontSize: "13px",
             lineHeight: "1.6"
           }}>
-            Load a YouTube video to start Gemini multimodal analysis...
+            Start a camera stream to begin Gemini multimodal analysis...
           </p>
         </div>
       )}
@@ -1417,12 +1417,14 @@ export default function LiveMonitor() {
 
   // Socket
   useEffect(() => {
-    const socket = io(API, {
+    const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000', {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 5,
     });
+    setSocket(socket);
+    setIsSocketConnected(true);
 
     socket.on("connect", () => {
       setCameraStatus("connected");
@@ -1430,6 +1432,7 @@ export default function LiveMonitor() {
     });
     socket.on("disconnect", () => {
       setCameraStatus("disconnected");
+      setIsSocketConnected(false);
       toast({ title: "Connection Lost", description: "Reconnecting...", variant: "destructive" });
     });
     socket.on("frame", (data: any) => {
@@ -1509,6 +1512,61 @@ export default function LiveMonitor() {
       socket.disconnect();
     };
   }, [fetchAuthorities, loadMajorAuthorities, toast, activeLocationName, isAlertsConfigured]);
+
+  // WebRTC capture for Webcam mode
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    const startWebcam = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+
+        intervalId = setInterval(() => {
+          if (videoRef.current && canvasRef.current && socket) {
+            const canvas = canvasRef.current;
+            const video = videoRef.current;
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                // Convert to base64 JPEG
+                const base64Data = canvas.toDataURL('image/jpeg', 0.8);
+                socket.emit("webrtc_frame", { frame: base64Data });
+              }
+            }
+          }
+        }, 2000);
+      } catch (err) {
+        console.error("Error accessing webcam: ", err);
+        toast({ title: "Webcam Access Denied", description: "Please allow webcam access in your browser.", variant: "destructive" });
+      }
+    };
+
+    const stopWebcam = () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (intervalId) clearInterval(intervalId);
+    };
+
+    if (activeCamera === "webcam") {
+      startWebcam();
+    } else {
+      stopWebcam();
+    }
+
+    return () => {
+      stopWebcam();
+    };
+  }, [activeCamera, socket, toast]);
 
   // Activate webcam
   const activateWebcam = async () => {
@@ -1713,7 +1771,8 @@ export default function LiveMonitor() {
               isFullScreen && "fixed inset-0 z-50 w-full h-full rounded-none"
             )}
           >
-            <img ref={imgRef} className="w-full h-full object-contain" alt="Live feed" />
+            <img ref={imgRef} className={cn("w-full h-full object-contain", activeCamera === "webcam" ? "hidden" : "block")} alt="Live feed" />
+            <video ref={videoRef} autoPlay playsInline muted className={cn("w-full h-full object-contain", activeCamera === "webcam" ? "block" : "hidden")} />
             <AnimatePresence>
               {!isSocketConnected && (
                 <motion.div
@@ -1823,7 +1882,7 @@ export default function LiveMonitor() {
                 <input
                   value={rtspUrl}
                   onChange={e => setRtspUrl(e.target.value)}
-                  placeholder="rtsp://username:password@192.168.1.1:554/stream"
+                  placeholder="http://pendelcam.kip.uni-heidelberg.de/mjpg/video.mjpg"
                   style={{
                     width: "100%",
                     background: "#111",
@@ -2003,6 +2062,9 @@ export default function LiveMonitor() {
 
       <AdminSetupModal isOpen={isSetupModalOpen} onClose={() => setIsSetupModalOpen(false)} />
       <EmergencyCallOverlay isOpen={isCallOverlayOpen} onClose={() => setIsCallOverlayOpen(false)} incident={activeCallIncident} />
+      
+      {/* Hidden WebRTC Elements for Webcam capture */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   );
 }

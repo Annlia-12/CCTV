@@ -117,11 +117,11 @@ _runtime = {
     "last_processing_fps": 0.0,
     "detection_loop_running": False,
     "feature_loop_running": False,
-    "youtube_gemini_loop_running": False,
+    "gemini_vision_loop_running": False,
 }
 
-gemini_yt_running = False
-gemini_yt_lock = threading.Lock()
+gemini_vision_running = False
+gemini_vision_lock = threading.Lock()
 latest_gemini_result: dict[str, Any] | None = None
 
 _active_location = {
@@ -414,18 +414,14 @@ def handle_gemini_threat(threat: dict[str, Any], frame: Any, full_result: dict[s
         _log(f"gemini-threat {e}")
 
 
-def youtube_gemini_loop() -> None:
-    global gemini_yt_running
+def gemini_vision_loop() -> None:
+    global gemini_vision_running
     global latest_gemini_result
 
-    _runtime["youtube_gemini_loop_running"] = True
-    _log("YouTube Gemini Vision loop started")
+    _runtime["gemini_vision_loop_running"] = True
+    _log("Gemini Vision loop started for all sources")
     while True:
         try:
-            if _camera.source_type != "youtube":
-                time.sleep(1)
-                continue
-
             cam_status = _camera.get_status()
             if not cam_status.get("is_connected", False):
                 time.sleep(1)
@@ -437,25 +433,25 @@ def youtube_gemini_loop() -> None:
                 continue
 
             should_run = False
-            with gemini_yt_lock:
-                if not gemini_yt_running:
-                    gemini_yt_running = True
+            with gemini_vision_lock:
+                if not gemini_vision_running:
+                    gemini_vision_running = True
                     should_run = True
 
             if not should_run:
                 time.sleep(0.2)
                 continue
 
-            result = _detector.analyze_youtube_frame(frame)
+            result = _detector.analyze_frame_with_fallback(frame)
 
-            with gemini_yt_lock:
-                gemini_yt_running = False
+            with gemini_vision_lock:
+                gemini_vision_running = False
 
             if result is None:
-                time.sleep(5)
+                time.sleep(2)
                 continue
 
-            with gemini_yt_lock:
+            with gemini_vision_lock:
                 latest_gemini_result = result
 
             socketio.emit("gemini_analysis", result)
@@ -467,12 +463,12 @@ def youtube_gemini_loop() -> None:
                 if severity >= 6 and confidence >= 0.65:
                     handle_gemini_threat(threat, frame, result)
 
-            time.sleep(5)
+            time.sleep(2)
         except Exception as e:
-            _log(f"gemini-yt-loop {e}")
-            with gemini_yt_lock:
-                gemini_yt_running = False
-            time.sleep(5)
+            _log(f"gemini-vision-loop {e}")
+            with gemini_vision_lock:
+                gemini_vision_running = False
+            time.sleep(2)
 
 
 def feature_update_loop() -> None:
@@ -498,8 +494,8 @@ def ensure_background_tasks() -> None:
         socketio.start_background_task(detection_loop)
     if not _runtime["feature_loop_running"]:
         socketio.start_background_task(feature_update_loop)
-    if not _runtime["youtube_gemini_loop_running"]:
-        socketio.start_background_task(youtube_gemini_loop)
+    if not _runtime["gemini_vision_loop_running"]:
+        socketio.start_background_task(gemini_vision_loop)
 
 
 @socketio.on("connect")
@@ -515,6 +511,29 @@ def on_connect():
         },
     )
 
+@socketio.on("webrtc_frame")
+def handle_webrtc_frame(data):
+    if _camera.source_type != "webcam":
+        return
+    try:
+        b64 = data.get("frame")
+        if not b64:
+            return
+        # If it includes the data URI scheme, strip it
+        if "base64," in b64:
+            b64 = b64.split("base64,")[1]
+            
+        import base64
+        import numpy as np
+        
+        img_data = base64.b64decode(b64)
+        nparr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is not None:
+            _camera.set_webrtc_frame(frame)
+    except Exception as e:
+        _log(f"webrtc frame decode error: {e}")
 
 # Camera endpoints
 @app.post("/api/camera/source")
@@ -592,7 +611,7 @@ def switch_camera_source():
 
         _detector.reset_state_on_source_change()
         global latest_gemini_result
-        with gemini_yt_lock:
+        with gemini_vision_lock:
             latest_gemini_result = None
 
         if hasattr(handle_gemini_threat, "_cooldowns"):

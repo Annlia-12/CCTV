@@ -362,14 +362,18 @@ class CameraManager:
 
         try:
             self._log(f"opening {source_type} source: {source_target}")
-            cap = cv2.VideoCapture(source_target)
+            
+            cap = None
+            if source_type != "webcam":
+                cap = cv2.VideoCapture(source_target)
+            
             
             # CRITICAL - set buffer size to prevent stuck frames for network streams
-            if source_type in ["youtube", "ipcam"]:
+            if source_type in ["youtube", "ipcam", "rtsp"]:
                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 10000)
 
-            if not cap or not cap.isOpened():
+            if source_type != "webcam" and (not cap or not cap.isOpened()):
                 self._log(f"failed to open source ({source_type})")
                 self.last_error = f"Failed to open source: {source_type}"
                 if cap:
@@ -421,7 +425,10 @@ class CameraManager:
         failure_limit = 150 if self.source_type in ["youtube", "ipcam"] else 15
 
         while self.is_running:
-            if self.source_type == "youtube":
+            if self.source_type == "webcam":
+                time.sleep(0.1)
+                continue
+            elif self.source_type == "youtube":
                 if self.vidgear_stream is None:
                     time.sleep(0.1)
                     continue
@@ -529,6 +536,18 @@ class CameraManager:
             if self.latest_frame is None:
                 return None
             return self.latest_frame.copy()
+
+    def set_webrtc_frame(self, frame: np.ndarray) -> None:
+        with self.frame_lock:
+            try:
+                if frame.shape[0] != 720 or frame.shape[1] != 1280:
+                    frame = cv2.resize(frame, (1280, 720))
+                self.latest_frame = frame
+                self.status["is_connected"] = True
+                self.status["resolution"] = f"{frame.shape[1]}x{frame.shape[0]}"
+                self.status["last_frame_time"] = datetime.now(timezone.utc).isoformat()
+            except Exception as exc:
+                self._log(f"webrtc set_frame error: {exc}")
 
     def get_frame_base64(self) -> str | None:
         frame = self.get_frame()

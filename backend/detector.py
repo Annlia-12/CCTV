@@ -133,8 +133,8 @@ class Detector:
         self.gemini_retry_until = 0.0
         self.gemini_last_rl_log = 0.0  # Log rate limit messages only every 30 seconds to avoid spam
         # YouTube-only Gemini rate-limit guard to avoid repeated 429 calls.
-        self.youtube_gemini_retry_until = 0.0
-        self.youtube_gemini_last_rl_log = 0.0
+        self.gemini_retry_until = 0.0
+        self.gemini_last_rl_log = 0.0
         self._gemini_pending_alerts: list[dict[str, Any]] = []
         self._gemini_alert_times: dict[str, float] = {}
         self.registered_contacts: list[dict[str, Any]] = []
@@ -822,7 +822,7 @@ class Detector:
         result = response.choices[0].message.content
         return str(result).strip() if result is not None else None
 
-    def analyze_youtube_frame(self, frame: np.ndarray) -> dict[str, Any] | None:
+    def analyze_frame_with_fallback(self, frame: np.ndarray) -> dict[str, Any] | None:
         """
         YouTube mode — Gemini primary, Groq fallback on quota errors.
         No YOLO. No MediaPipe.
@@ -830,12 +830,12 @@ class Detector:
         """
         try:
             now = time.time()
-            if self.gemini_quota_exhausted or now < self.youtube_gemini_retry_until:
-                retry_after = max(1, int(self.youtube_gemini_retry_until - now)) if not self.gemini_quota_exhausted else 0
+            if self.gemini_quota_exhausted or now < self.gemini_retry_until:
+                retry_after = max(1, int(self.gemini_retry_until - now)) if not self.gemini_quota_exhausted else 0
                 # Limit console spam while in cooldown.
-                if now - self.youtube_gemini_last_rl_log >= 30:
-                    print(f"[gemini-yt] rate-limited, retrying in {retry_after}s")
-                    self.youtube_gemini_last_rl_log = now
+                if now - self.gemini_last_rl_log >= 30:
+                    print(f"[gemini-vision] rate-limited, retrying in {retry_after}s")
+                    self.gemini_last_rl_log = now
                 return self._groq_youtube_analysis(frame, rate_limited=True, retry_after_seconds=retry_after)
 
             import PIL.Image
@@ -1361,12 +1361,12 @@ IMPORTANT RULES:
             if self._is_gemini_quota_error(error_text):
                 retry_seconds = self._parse_gemini_retry_seconds(error_text)
                 now = time.time()
-                self.youtube_gemini_retry_until = now + retry_seconds
-                self.youtube_gemini_last_rl_log = now
-                print(f"[gemini-yt] rate limit hit, pausing requests for {int(retry_seconds)}s")
+                self.gemini_retry_until = now + retry_seconds
+                self.gemini_last_rl_log = now
+                print(f"[gemini-vision] rate limit hit, pausing requests for {int(retry_seconds)}s")
                 return self._groq_youtube_analysis(frame, rate_limited=True, retry_after_seconds=int(retry_seconds), gemini_error=str(e))
 
-            print(f"[gemini-yt] error: {e}")
+            print(f"[gemini-vision] error: {e}")
             return None
 
     def _groq_youtube_analysis(
