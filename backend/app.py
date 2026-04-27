@@ -27,7 +27,6 @@ from werkzeug.utils import secure_filename
 import cv2
 import requests
 from flask import Flask, Response, jsonify, request, make_response
-from flask_cors import CORS, cross_origin
 from flask_socketio import SocketIO
 
 from alert_system import AlertSystem
@@ -57,7 +56,6 @@ def err(message: str, status_code: int = 500):
 async_mode = "threading"
 
 app = Flask(__name__)
-CORS(app, origins="*")
 
 @app.before_request
 def handle_preflight():
